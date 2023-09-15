@@ -1,43 +1,92 @@
+import com.jingom.template.TemplateAppBuildType
+
 plugins {
-	id("com.android.application")
-	id("org.jetbrains.kotlin.android")
+	id("templateapp.android.application")
+	id("templateapp.android.application.compose")
+	id("templateapp.android.application.flavors")
+	id("templateapp.android.application.jacoco")
+	id("templateapp.android.hilt")
+	id("jacoco")
+	id("templateapp.android.application.firebase")
 }
 
 android {
 	namespace = "com.jingom.template"
-	compileSdk = 33
 
 	defaultConfig {
 		applicationId = "com.jingom.template"
-		minSdk = 24
-		targetSdk = 33
 		versionCode = 1
 		versionName = "1.0"
 
-		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+		// Custom test runner to set up Hilt dependency graph
+		testInstrumentationRunner = "com.jiingom.templateapp.core.testing.NiaTestRunner"
+		vectorDrawables {
+			useSupportLibrary = true
+		}
 	}
 
 	buildTypes {
-		release {
-			isMinifyEnabled = false
+		debug {
+			applicationIdSuffix = TemplateAppBuildType.DEBUG.applicationIdSuffix
+		}
+		val release by getting {
+			isMinifyEnabled = true
+			applicationIdSuffix = TemplateAppBuildType.RELEASE.applicationIdSuffix
 			proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+
+			// To publish on the Play store a private signing key is required, but to allow anyone
+			// who clones the code to sign and run the release variant, use the debug signing key.
+			// TODO: Abstract the signing configuration to a separate file to avoid hardcoding this.
+			signingConfig = signingConfigs.getByName("debug")
+		}
+		create("benchmark") {
+			// Enable all the optimizations from release build through initWith(release).
+			initWith(release)
+			matchingFallbacks.add("release")
+			// Debug key signing is available to everyone.
+			signingConfig = signingConfigs.getByName("debug")
+			// Only use benchmark proguard rules
+			proguardFiles("benchmark-rules.pro")
+			isMinifyEnabled = true
+			applicationIdSuffix = TemplateAppBuildType.BENCHMARK.applicationIdSuffix
 		}
 	}
-	compileOptions {
-		sourceCompatibility = JavaVersion.VERSION_1_8
-		targetCompatibility = JavaVersion.VERSION_1_8
+
+	packaging {
+		resources {
+			excludes.add("/META-INF/{AL2.0,LGPL2.1}")
+		}
 	}
-	kotlinOptions {
-		jvmTarget = "1.8"
+	testOptions {
+		unitTests {
+			isIncludeAndroidResources = true
+		}
 	}
 }
 
 dependencies {
+	debugImplementation(libs.androidx.compose.ui.testManifest)
 
-	implementation("androidx.core:core-ktx:1.9.0")
-	implementation("androidx.appcompat:appcompat:1.6.1")
-	implementation("com.google.android.material:material:1.9.0")
-	testImplementation("junit:junit:4.13.2")
-	androidTestImplementation("androidx.test.ext:junit:1.1.5")
-	androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+	implementation(libs.androidx.activity.compose)
+	implementation(libs.androidx.appcompat)
+	implementation(libs.androidx.core.ktx)
+	implementation(libs.androidx.core.splashscreen)
+	implementation(libs.androidx.compose.runtime)
+	implementation(libs.androidx.lifecycle.runtimeCompose)
+	implementation(libs.androidx.compose.runtime.tracing)
+	implementation(libs.androidx.compose.material3.windowSizeClass)
+	implementation(libs.androidx.hilt.navigation.compose)
+	implementation(libs.androidx.navigation.compose)
+	implementation(libs.androidx.window.manager)
+	implementation(libs.androidx.profileinstaller)
+	implementation(libs.kotlinx.coroutines.guava)
+	implementation(libs.coil.kt)
+
+	// Core functions
+	testImplementation(libs.androidx.navigation.testing)
+	testImplementation(libs.accompanist.testharness)
+	testImplementation(kotlin("test"))
+	implementation(libs.work.testing)
+	kaptTest(libs.hilt.compiler)
+
 }
